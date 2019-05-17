@@ -247,19 +247,19 @@ follows:
 
 #### Avro
 
-**Note: Same as hdfs:avro
+**Note:** Same as hdfs:avro
 
 #### SequenceWritable
 
-**Note: Same as hdfs:sequenceFile
+**Note:** Same as hdfs:sequenceFile
 
 #### SequenceText
 
-**Note: Same as hdfs:SequenceFile
+**Note:** Same as hdfs:SequenceFile
 
 #### Json
 
-**Note: Same as hdfs:json
+**Note:** Same as hdfs:json
 
 #### Jdbc
 
@@ -276,7 +276,7 @@ follows:
 
 #### Parquet
 
-**Note: Same as hdfs:parquet
+**Note:** Same as hdfs:parquet
 
 #### hdfs:text
 
@@ -302,7 +302,7 @@ follows:
           SERVER s3_server
           OPTIONS ( resource '/bucket/file', format 'text' );
 
-**Note: Minio can be accessed with the S3 foreign data wrapper
+**Note:** Minio can be accessed with the S3 foreign data wrapper
 
 #### s3:text:multi
 
