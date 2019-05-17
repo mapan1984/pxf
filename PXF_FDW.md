@@ -29,8 +29,7 @@ the following Foreign Data Wrappers.
 2. **file_pxf_fdw**     Provides access to local file storage
 
 
-The PXF Foreign Data Wrapper will create the following foreign data wrappers on
-installation:
+The PXF Foreign Data Wrapper will create:
 
 
     CREATE FOREIGN DATA WRAPPER jdbc_pxf_fdw
