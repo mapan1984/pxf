@@ -135,23 +135,23 @@ and Azure Blob Storage access. Users need to create a server for each cloud acce
 
 ### S3 Server Example
 
-     CREATE FOREIGN SERVER s3_server
+     CREATE SERVER s3_server
           FOREIGN DATA WRAPPER s3_pxf_fdw
           OPTIONS ( accesskey 'MY_AWS_ACCESS_KEY', secretkey 'MY_AWS_SECRET_KEY' );
 
 ### Google Cloud Storage Example
 
-     CREATE FOREIGN SERVER gs_server
+     CREATE SERVER gs_server
           FOREIGN DATA WRAPPER gs_pxf_fdw;
 
 ### Azure Data Lake Example
 
-     CREATE FOREIGN SERVER adl_server
+     CREATE SERVER adl_server
           FOREIGN DATA WRAPPER adl_pxf_fdw;
 
 ### Azure Blob Storage Example
 
-     CREATE FOREIGN SERVER wasbs_server
+     CREATE SERVER wasbs_server
           FOREIGN DATA WRAPPER wasbs_pxf_fdw;
 
 ## Hadoop Access
@@ -163,15 +163,15 @@ Suppose an enterprise user has a Hortonworks hadoop installation that includes
 HDFS, Hive, and HBase. We would configure one server per technology we access, 
 for example:
 
-     CREATE FOREIGN SERVER hdfs_hdp
+     CREATE SERVER hdfs_hdp
           FOREIGN DATA WRAPPER hdfs_pxf_fdw
           OPTIONS ( config 'hdp_1' );
      
-     CREATE FOREIGN SERVER hive_hdp
+     CREATE SERVER hive_hdp
           FOREIGN DATA WRAPPER hive_pxf_fdw
           OPTIONS ( config 'hdp_1' );
      
-     CREATE FOREIGN SERVER hbase_hdp
+     CREATE SERVER hbase_hdp
           FOREIGN DATA WRAPPER hbase_pxf_fdw
           OPTIONS ( config 'hdp_1' );
           
@@ -190,7 +190,7 @@ Occasionally, access to local file system is required. PXF provides access to
 local file system using the file_pxf_fdw. The `mount_path` option needs to be
 specified to access the local filesystem.
 
-     CREATE FOREIGN SERVER local_file_system
+     CREATE SERVER local_file_system
           FOREIGN DATA WRAPPER file_pxf_fdw
           OPTIONS ( mount_path '/data/directory/' );
  
