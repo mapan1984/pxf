@@ -358,7 +358,11 @@ follows:
 
      CREATE FOREIGN TABLE hdfs_parquet
           SERVER hdfs_hdp
-          OPTIONS ( resource '/hdfs/path/to/parque/files', format 'parquet' );
+          OPTIONS ( resource '/hdfs/path/to/parquet/files', format 'parquet' );
+
+     CREATE FOREIGN TABLE hdfs_parquet_gzip
+          SERVER hdfs_hdp
+          OPTIONS ( resource '/hdfs/path/to/parquet/gzip/files', format 'parquet', compression_codec 'gzip' );
 
 #### s3:parquet
 
