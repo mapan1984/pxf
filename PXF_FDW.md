@@ -16,6 +16,11 @@ deprecated in later versions of Greenplum.
 For every PXF connector, we propose a PXF Foreign Data Wrapper. PXF will provide
 the following Foreign Data Wrappers.
 
+    CREATE FOREIGN DATA WRAPPER <connector>_pxf_fdw
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol '<protocol_name>' [, ... ] );
+
 ### PXF Native Foreign Data Wrappers
 
 1. **jdbc_pxf_fdw**     Provides access to databases through JDBC
@@ -27,7 +32,6 @@ the following Foreign Data Wrappers.
 2. **adl_pxf_fdw**      Provides access to Azure Datalake
 2. **wasbs_pxf_fdw**    Provides access to Microsoft's Azure Blob Storage
 2. **file_pxf_fdw**     Provides access to local file storage
-
 
 The PXF Foreign Data Wrapper will create:
 
@@ -111,6 +115,10 @@ with the following constraints:
 
 This section provides an overview of the creation of different servers supported
 by PXF.
+
+    CREATE SERVER <server_name>
+        FOREIGN DATA WRAPPER <connector>_pxf_fdw
+        [ OPTIONS ( option 'value' [, ... ] ) ];
 
 ## External Database Access
 
@@ -199,6 +207,10 @@ User mappings allows users to access servers. We can add user specific options
 in a user mapping. For example, if a user accesses the oracle server above, he
 needs to provide his oracle username/password in the user mapping options.
 
+    CREATE USER MAPPING FOR { user_name | USER | CURRENT_USER | PUBLIC }
+        SERVER <server_name>
+        [ OPTIONS ( option 'value' [ , ... ] ) ]
+
 ### Oracle User Mapping Example
 
      CREATE USER MAPPING FOR francisco
@@ -224,6 +236,13 @@ corresponding `s3:parquet` profile.
 
 To create a foreign table, a `resource` must be provided. Optionally, a `format`
 option can be provided.
+
+    CREATE FOREIGN TABLE [ IF NOT EXISTS ] <table_name> ( [
+        column_name data_type [ OPTIONS ( option 'value' [, ... ] ) ] [ COLLATE collation ] [ column_constraint [ ... ] ]
+        [, ... ]
+    ] )
+      SERVER server_name
+      OPTIONS ( resource 'value' [ format '<file_format>' , ... ] );
 
 Existing profiles are supported by foreign data wrappers and are mapped as
 follows:
