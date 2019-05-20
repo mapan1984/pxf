@@ -267,19 +267,19 @@ follows:
 
 #### Avro
 
-**Note:** Same as hdfs:avro
+**Note:** Same as [hdfs:avro](#hdfsavro)
 
 #### SequenceWritable
 
-**Note:** Same as hdfs:sequenceFile
+**Note:** Same as [hdfs:sequenceFile](#hdfssequenceFile)
 
 #### SequenceText
 
-**Note:** Same as hdfs:SequenceFile
+**Note:** Same as [hdfs:SequenceFile](#hdfsSequenceFile)
 
 #### Json
 
-**Note:** Same as hdfs:json
+**Note:** Same as [hdfs:json](#hdfsjson)
 
 #### Jdbc
 
@@ -296,7 +296,7 @@ follows:
 
 #### Parquet
 
-**Note:** Same as hdfs:parquet
+**Note:** Same as [hdfs:parquet](#hdfsparquet)
 
 #### hdfs:text
 
