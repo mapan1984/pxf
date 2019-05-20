@@ -31,51 +31,50 @@ the following Foreign Data Wrappers.
 
 The PXF Foreign Data Wrapper will create:
 
-
     CREATE FOREIGN DATA WRAPPER jdbc_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'jdbc' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'jdbc' );
+
     CREATE FOREIGN DATA WRAPPER hdfs_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'hdfs' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'hdfs' );
+
     CREATE FOREIGN DATA WRAPPER hive_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'hive' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'hive' );
+
     CREATE FOREIGN DATA WRAPPER hbase_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'hbase' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'hbase' );
+
     CREATE FOREIGN DATA WRAPPER s3_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 's3' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 's3' );
+
     CREATE FOREIGN DATA WRAPPER gs_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'gs' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'gs' );
+
     CREATE FOREIGN DATA WRAPPER adl_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'adl' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'adl' );
+
     CREATE FOREIGN DATA WRAPPER wasbs_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'wasbs' );
-      
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'wasbs' );
+
     CREATE FOREIGN DATA WRAPPER file_pxf_fdw
-      VALIDATOR pxf_fdw_validator
-      HANDLER pxf_fdw_handler
-      OPTIONS ( protocol 'localfile' );
+        HANDLER pxf_fdw_handler
+        VALIDATOR pxf_fdw_validator
+        OPTIONS ( protocol 'localfile' );
       
 ### New Connectors during PXF Upgrades 
       
@@ -271,7 +270,7 @@ follows:
 
 #### SequenceWritable
 
-**Note:** Same as [hdfs:sequenceFile](#hdfssequenceFile)
+**Note:** Same as [hdfs:SequenceFile](#hdfssequenceFile)
 
 #### SequenceText
 
