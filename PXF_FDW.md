@@ -193,7 +193,27 @@ specified to access the local filesystem.
      CREATE SERVER local_file_system
           FOREIGN DATA WRAPPER file_pxf_fdw
           OPTIONS ( mount_path '/data/directory/' );
- 
+
+# User Mappings
+
+User mappings allows users to access servers. We can add user specific options
+in a user mapping. For example, if a user accesses the oracle server above, he
+needs to provide his oracle username/password in the user mapping options.
+
+### Oracle User Mapping Example
+
+     CREATE USER MAPPING FOR francisco
+         SERVER oracle_server
+         OPTIONS ( user 'francisco' , pass 'my-oracle-password' );
+
+### S3 User Mapping Example
+
+     CREATE USER MAPPING FOR francisco
+         SERVER s3_server
+         OPTIONS ( accesskey 'FRANCISCOS_AWS_ACCESS_KEY', secretkey 'FRANCISCOS_AWS_SECRET_KEY' );
+
+**Note**: Alternatively, user-specific information can be stored in a plain text
+file, that is only accessible by the gpadmin user.
 
 # Mapping Foreign Data Wrappers to PXF Profiles
 
