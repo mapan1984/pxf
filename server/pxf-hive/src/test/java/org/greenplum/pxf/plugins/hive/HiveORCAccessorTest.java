@@ -97,6 +97,7 @@ public class HiveORCAccessorTest {
                 build();
         String expected = toKryo(sarg);
 
+        // _1_ IN (1,2,3)
         context.setFilterString("a1m1007s1d1s1d2s1d3o10");
         try {
             accessor.openForRead();
