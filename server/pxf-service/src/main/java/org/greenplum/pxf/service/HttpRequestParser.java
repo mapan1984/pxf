@@ -92,16 +92,37 @@ public class HttpRequestParser implements RequestParser<HttpHeaders> {
         context.setAccessor(params.removeUserProperty("ACCESSOR"));
         context.setAggType(EnumAggregationType.getAggregationType(params.removeOptionalProperty("AGG-TYPE")));
 
-        /*
-         * Some resources don't require a fragment, hence the list can be empty.
-         */
-        String fragmentStr = params.removeOptionalProperty("DATA-FRAGMENT");
-        if (StringUtils.isNotBlank(fragmentStr)) {
-            context.setDataFragment(Integer.parseInt(fragmentStr));
+        String segmentFragmentCountStr = params.removeOptionalProperty("SEGMENT-FRAGMENT-COUNT");
+
+        if (StringUtils.isNotBlank(segmentFragmentCountStr)) {
+            int segmentFragmentCount = Integer.parseInt(segmentFragmentCountStr);
+
+            for (int i = 0; i < segmentFragmentCount; i++) {
+
+            }
+
+        } else {
+            /*
+             * Some resources don't require a fragment, hence the list can be empty.
+             */
+            String fragmentStr = params.removeOptionalProperty("DATA-FRAGMENT");
+            if (StringUtils.isNotBlank(fragmentStr)) {
+                context.setDataFragment(Integer.parseInt(fragmentStr));
+            }
+
+            context.setDataSource(params.removeProperty("DATA-DIR"));
+
+            String encodedFragmentMetadata = params.removeOptionalProperty("FRAGMENT-METADATA");
+            context.setFragmentMetadata(Utilities.parseBase64(encodedFragmentMetadata, "Fragment metadata information"));
+
+            String fragmentIndexStr = params.removeOptionalProperty("FRAGMENT-INDEX");
+            if (StringUtils.isNotBlank(fragmentIndexStr)) {
+                context.setFragmentIndex(Integer.parseInt(fragmentIndexStr));
+            }
+
+            String encodedFragmentUserData = params.removeOptionalProperty("FRAGMENT-USER-DATA");
+            context.setUserData(Utilities.parseBase64(encodedFragmentUserData, "Fragment user data"));
         }
-
-        context.setDataSource(params.removeProperty("DATA-DIR"));
-
 
         String filterString = params.removeOptionalProperty("FILTER");
         String hasFilter = params.removeProperty("HAS-FILTER");
@@ -113,13 +134,6 @@ public class HttpRequestParser implements RequestParser<HttpHeaders> {
 
         context.setFragmenter(params.removeUserProperty("FRAGMENTER"));
 
-        String fragmentIndexStr = params.removeOptionalProperty("FRAGMENT-INDEX");
-        if (StringUtils.isNotBlank(fragmentIndexStr)) {
-            context.setFragmentIndex(Integer.parseInt(fragmentIndexStr));
-        }
-
-        String encodedFragmentMetadata = params.removeOptionalProperty("FRAGMENT-METADATA");
-        context.setFragmentMetadata(Utilities.parseBase64(encodedFragmentMetadata, "Fragment metadata information"));
         context.setHost(params.removeProperty("URL-HOST"));
         context.setMetadata(params.removeUserProperty("METADATA"));
         context.setPort(params.removeIntProperty("URL-PORT"));
@@ -161,9 +175,6 @@ public class HttpRequestParser implements RequestParser<HttpHeaders> {
         parseGreenplumCSV(params, context);
 
         context.setUser(params.removeProperty("USER"));
-
-        String encodedFragmentUserData = params.removeOptionalProperty("FRAGMENT-USER-DATA");
-        context.setUserData(Utilities.parseBase64(encodedFragmentUserData, "Fragment user data"));
 
         // Store alignment for global use as a system property
         System.setProperty("greenplum.alignment", params.removeProperty("ALIGNMENT"));
