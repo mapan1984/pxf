@@ -8,7 +8,6 @@ import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.apache.hadoop.hive.ql.io.sarg.PredicateLeaf;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgumentFactory;
-import org.greenplum.pxf.api.UnsupportedTypeException;
 import org.greenplum.pxf.api.filter.CollectionOperand;
 import org.greenplum.pxf.api.filter.ColumnIndexOperand;
 import org.greenplum.pxf.api.filter.Node;
@@ -17,14 +16,12 @@ import org.greenplum.pxf.api.filter.Operator;
 import org.greenplum.pxf.api.filter.OperatorNode;
 import org.greenplum.pxf.api.filter.ScalarOperand;
 import org.greenplum.pxf.api.filter.TreeVisitor;
-import org.greenplum.pxf.api.io.DataType;
 import org.greenplum.pxf.api.utilities.ColumnDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
@@ -151,12 +148,12 @@ public class HiveORCSearchArgumentBuilder implements TreeVisitor {
                 filterValue = collectionOperand
                         .getData()
                         .stream()
-                        .map(data -> boxLiteral(convertDataType(collectionOperand.getDataType().getTypeElem(), data)))
+                        .map(data -> boxLiteral(collectionOperand.getDataType().getTypeElem().convertToNativeType(data)))
                         .collect(Collectors.toList());
             } else if (valueOperand.get() instanceof ScalarOperand) {
                 ScalarOperand scalarOperand = (ScalarOperand) valueOperand.get();
 
-                filterValue = convertDataType(scalarOperand);
+                filterValue = scalarOperand.getDataType().convertToNativeType(scalarOperand.getValue());
                 filterValue = boxLiteral(filterValue);
             }
         }
@@ -270,58 +267,6 @@ public class HiveORCSearchArgumentBuilder implements TreeVisitor {
         } else {
             throw new IllegalArgumentException("Unknown type for literal " +
                     literal);
-        }
-    }
-
-    /**
-     * Converts the scalar operand value to its original type
-     *
-     * @param scalarOperand the scalar operand
-     * @return the scalar operand value to its original type
-     */
-    private Object convertDataType(ScalarOperand scalarOperand) {
-        return convertDataType(scalarOperand.getDataType(), scalarOperand.getValue());
-    }
-
-    /**
-     * Converts the string value to the given type
-     *
-     * @param dataType the data type
-     * @param value    the value
-     * @return the string value to the given type
-     */
-    private Object convertDataType(DataType dataType, String value) {
-        try {
-            switch (dataType) {
-                case BIGINT:
-                    return Long.parseLong(value);
-                case INTEGER:
-                case SMALLINT:
-                    return Integer.parseInt(value);
-                case REAL:
-                    return Float.parseFloat(value);
-                case NUMERIC:
-                case FLOAT8:
-                    return Double.parseDouble(value);
-                case TEXT:
-                case VARCHAR:
-                case BPCHAR:
-                    return value;
-                case BOOLEAN:
-                    return Boolean.parseBoolean(value);
-                case DATE:
-                    return Date.valueOf(value);
-                case TIMESTAMP:
-                    return Timestamp.valueOf(value);
-                case TIME:
-                    return Time.valueOf(value);
-                case BYTEA:
-                    return value.getBytes();
-                default:
-                    throw new UnsupportedTypeException(String.format("DataType %s unsupported", dataType));
-            }
-        } catch (NumberFormatException nfe) {
-            throw new IllegalStateException(String.format("failed to parse number data %s for type %s", value, dataType));
         }
     }
 

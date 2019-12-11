@@ -51,6 +51,7 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;
 import org.greenplum.pxf.api.OneRow;
 import org.greenplum.pxf.api.UnsupportedTypeException;
+import org.greenplum.pxf.api.filter.*;
 import org.greenplum.pxf.api.io.DataType;
 import org.greenplum.pxf.api.model.Accessor;
 import org.greenplum.pxf.api.model.BasePlugin;
@@ -61,13 +62,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.parquet.filter.ColumnPredicates.equalTo;
-import static org.apache.parquet.filter.ColumnRecordFilter.column;
 
 /**
  * Parquet file accessor.
@@ -84,6 +85,10 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
     private static final WriterVersion DEFAULT_PARQUET_VERSION = WriterVersion.PARQUET_1_0;
     private static final CompressionCodecName DEFAULT_COMPRESSION = CompressionCodecName.SNAPPY;
 
+    private static final EnumSet<Operator> SUPPORTED_OPERATORS = EnumSet.of(
+            Operator.EQUALS
+    );
+
     private ParquetFileReader fileReader;
     private MessageColumnIO columnIO;
     private CompressionCodecName codecName;
@@ -95,7 +100,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
     private FileSystem fs;
     private Path file;
     private String filePrefix;
-    private int fileIndex, pageSize, rowgroupSize, dictionarySize;
+    private int fileIndex, pageSize, rowGroupSize, dictionarySize;
     private long rowsRead, rowsWritten, totalRowsRead, totalRowsWritten;
     private long rowsInRowGroup, rowGroupsReadCount;
     private WriterVersion parquetVersion;
@@ -116,12 +121,9 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
         MetadataFilter filter = ParquetMetadataConverter.range(
                 fileSplit.getStart(), fileSplit.getStart() + fileSplit.getLength());
 
-        recordFilter = getRecordFilter();
-
         ParquetReadOptions parquetReadOptions = HadoopReadOptions
                 .builder(configuration)
                 .withMetadataFilter(filter)
-                .withRecordFilter(recordFilter)
                 .build();
         HadoopInputFile inputFile = HadoopInputFile.fromPath(this.file, configuration);
         fileReader = ParquetFileReader.open(inputFile, parquetReadOptions);
@@ -133,8 +135,9 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
             columnIO = new ColumnIOFactory().getColumnIO(readSchema, schema);
             groupRecordConverter = new GroupRecordConverter(readSchema);
+            recordFilter = getRecordFilter(context.getFilterString(), schema);
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Reading file {} with {} records in {} rowgroups",
+                LOG.debug("Reading file {} with {} records in {} RowGroups",
                         file.getName(), fileReader.getRecordCount(),
                         fileReader.getRowGroups().size());
             }
@@ -146,15 +149,40 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
         return true;
     }
 
-    private FilterCompat.Filter getRecordFilter() {
-        String filterString = context.getFilterString();
+    /**
+     * Returns the parquet record filter for the given filter string
+     *
+     * @param filterString the filter string
+     * @param schema       the parquet schema
+     * @return the parquet record filter for the given filter string
+     */
+    private FilterCompat.Filter getRecordFilter(String filterString, MessageType schema) {
         if (StringUtils.isBlank(filterString)) {
-            return null;
+            return FilterCompat.NOOP;
         }
 
-        return new ParquetRecordFilterBuilder(context.getTupleDescription())
-                .buildRecordFilter(filterString);
-//        return FilterCompat.get(column("l_partkey", equalTo(185761L)));
+        TreePruner treePruner = new BaseTreePruner(SUPPORTED_OPERATORS);
+        ParquetRecordTreeVisitor treeVisitor = new ParquetRecordTreeVisitor(
+                context.getTupleDescription(), schema);
+
+//        FilterCompat.Filter foobar = FilterCompat.get(column("l_partkey", equalTo(185761L)));
+//        FilterCompat.Filter foobar = FilterCompat.get(eq(longColumn("l_partkey"), 185761L));
+
+        try {
+            Node root = new FilterParser().parse(filterString.getBytes());
+            root = treePruner.prune(root);
+
+            new TreeTraverser().inOrderTraversal(root, treeVisitor);
+            return treeVisitor.getRecordFilter();
+        } catch (Exception e) {
+            LOG.error(String.format("%s-%d: %s--%s Unable to generate Parquet Record Filter for filter",
+                    context.getTransactionId(),
+                    context.getSegmentId(),
+                    context.getDataSource(),
+                    context.getFilterString()), e);
+            return FilterCompat.NOOP;
+        }
+
     }
 
     /**
@@ -186,7 +214,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
         PageReadStore currentRowGroup = fileReader.readNextRowGroup();
         if (currentRowGroup == null) {
-            LOG.debug("All rowgroups have been exhausted for {}", file.getName());
+            LOG.debug("All RowGroups have been exhausted for {}", file.getName());
             return false;
         }
 
@@ -194,10 +222,11 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
         totalRowsRead += rowsRead;
         // Reset rows read
         rowsRead = 0;
+
         recordReader = columnIO.getRecordReader(currentRowGroup, groupRecordConverter, recordFilter);
         rowsInRowGroup = currentRowGroup.getRowCount();
 
-        LOG.debug("Reading {} rows (rowgroup {})", rowsInRowGroup, rowGroupsReadCount);
+        LOG.debug("Reading {} rows (RowGroup {})", rowsInRowGroup, rowGroupsReadCount);
         return true;
     }
 
@@ -215,7 +244,12 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
     public void closeForRead() throws IOException {
 
         totalRowsRead += rowsRead;
-        LOG.debug("Read TOTAL of {} rows in {} rowgroups", totalRowsRead, rowGroupsReadCount);
+        LOG.debug("Segment {}: Read TOTAL of {} rows in {} RowGroups from file {} on server {}",
+                context.getSegmentId(),
+                totalRowsRead,
+                rowGroupsReadCount,
+                context.getDataSource(),
+                context.getServerName());
         if (fileReader != null) {
             fileReader.close();
         }
@@ -240,12 +274,12 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
         // Options for parquet write
         pageSize = getOption("PAGE_SIZE", DEFAULT_PAGE_SIZE);
-        rowgroupSize = getOption("ROWGROUP_SIZE", DEFAULT_ROWGROUP_SIZE);
+        rowGroupSize = getOption("ROWGROUP_SIZE", DEFAULT_ROWGROUP_SIZE);
         dictionarySize = getOption("DICTIONARY_PAGE_SIZE", DEFAULT_DICTIONARY_PAGE_SIZE);
         String parquetVerStr = context.getOption("PARQUET_VERSION");
         parquetVersion = parquetVerStr != null ? WriterVersion.fromString(parquetVerStr.toLowerCase()) : DEFAULT_PARQUET_VERSION;
         LOG.debug("Parquet options: PAGE_SIZE = {}, ROWGROUP_SIZE = {}, DICTIONARY_PAGE_SIZE = {}, PARQUET_VERSION = {}",
-                pageSize, rowgroupSize, dictionarySize, parquetVersion);
+                pageSize, rowGroupSize, dictionarySize, parquetVersion);
 
         // Read schema file, if given
         String schemaFile = context.getOption("SCHEMA");
@@ -349,7 +383,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
         //noinspection deprecation
         parquetWriter = new ParquetWriter<>(file, groupWriteSupport, codecName,
-                rowgroupSize, pageSize, dictionarySize,
+                rowGroupSize, pageSize, dictionarySize,
                 true, false, parquetVersion, configuration);
     }
 

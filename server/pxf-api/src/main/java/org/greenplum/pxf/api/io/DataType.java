@@ -20,6 +20,11 @@ package org.greenplum.pxf.api.io;
  */
 
 
+import org.greenplum.pxf.api.UnsupportedTypeException;
+
+import java.sql.Date;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,25 +36,90 @@ import java.util.Set;
  * There's a one-to-one match between a Data Type and it's corresponding OID.
  */
 public enum DataType {
-    BOOLEAN(16),
-    BYTEA(17),
-    BIGINT(20),
-    SMALLINT(21),
-    INTEGER(23),
-    TEXT(25),
-    REAL(700),
-    FLOAT8(701),
+    BOOLEAN(16) {
+        @Override
+        public Boolean convertToNativeType(String value) {
+            return Boolean.parseBoolean(value);
+        }
+    },
+    BYTEA(17) {
+        @Override
+        public byte[] convertToNativeType(String value) {
+            return value.getBytes();
+        }
+    },
+    BIGINT(20) {
+        @Override
+        public Long convertToNativeType(String value) {
+            return Long.parseLong(value);
+        }
+    },
+    SMALLINT(21) {
+        @Override
+        public Integer convertToNativeType(String value) {
+            return Integer.parseInt(value);
+        }
+    },
+    INTEGER(23) {
+        @Override
+        public Integer convertToNativeType(String value) {
+            return Integer.parseInt(value);
+        }
+    },
+    TEXT(25) {
+        @Override
+        public String convertToNativeType(String value) {
+            return value;
+        }
+    },
+    REAL(700) {
+        @Override
+        public Float convertToNativeType(String value) {
+            return Float.parseFloat(value);
+        }
+    },
+    FLOAT8(701) {
+        @Override
+        public Double convertToNativeType(String value) {
+            return Double.parseDouble(value);
+        }
+    },
     /**
      * char(length), blank-padded string, fixed storage length
      */
-    BPCHAR(1042),
+    BPCHAR(1042) {
+        @Override
+        public String convertToNativeType(String value) {
+            return value;
+        }
+    },
     /**
      * varchar(length), non-blank-padded string, variable storage length
      */
-    VARCHAR(1043),
-    DATE(1082),
-    TIME(1083),
-    TIMESTAMP(1114),
+    VARCHAR(1043) {
+        @Override
+        public String convertToNativeType(String value) {
+            return value;
+        }
+    },
+    DATE(1082) {
+        @Override
+        public Date convertToNativeType(String value) {
+            return Date.valueOf(value);
+        }
+    },
+    TIME(1083) {
+        @Override
+        public Time convertToNativeType(String value) {
+            return Time.valueOf(value);
+        }
+    },
+    TIMESTAMP(1114) {
+        @Override
+        public Object convertToNativeType(String value) {
+            return Timestamp.valueOf(value);
+        }
+    },
     TIMESTAMP_WITH_TIME_ZONE(1184),
     NUMERIC(1700),
 
@@ -120,5 +190,15 @@ public enum DataType {
 
     public DataType getTypeElem() {
         return typeElem;
+    }
+
+    /**
+     * Converts the string value to the java type of the data type
+     *
+     * @param value the value
+     * @return the value in the java type
+     */
+    public Object convertToNativeType(String value) {
+        throw new UnsupportedTypeException(String.format("DataType %s unsupported", this));
     }
 }
