@@ -51,7 +51,12 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;
 import org.greenplum.pxf.api.OneRow;
 import org.greenplum.pxf.api.UnsupportedTypeException;
-import org.greenplum.pxf.api.filter.*;
+import org.greenplum.pxf.api.filter.BaseTreePruner;
+import org.greenplum.pxf.api.filter.FilterParser;
+import org.greenplum.pxf.api.filter.Node;
+import org.greenplum.pxf.api.filter.Operator;
+import org.greenplum.pxf.api.filter.TreePruner;
+import org.greenplum.pxf.api.filter.TreeTraverser;
 import org.greenplum.pxf.api.io.DataType;
 import org.greenplum.pxf.api.model.Accessor;
 import org.greenplum.pxf.api.model.BasePlugin;
@@ -67,8 +72,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.apache.parquet.filter.ColumnPredicates.equalTo;
 
 /**
  * Parquet file accessor.
@@ -86,7 +89,10 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
     private static final CompressionCodecName DEFAULT_COMPRESSION = CompressionCodecName.SNAPPY;
 
     private static final EnumSet<Operator> SUPPORTED_OPERATORS = EnumSet.of(
-            Operator.EQUALS
+            Operator.EQUALS,
+            Operator.OR,
+            Operator.AND,
+            Operator.NOT
     );
 
     private ParquetFileReader fileReader;
@@ -135,7 +141,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
             columnIO = new ColumnIOFactory().getColumnIO(readSchema, schema);
             groupRecordConverter = new GroupRecordConverter(readSchema);
-            recordFilter = getRecordFilter(context.getFilterString(), schema);
+            recordFilter = getRecordFilter(context.getFilterString(), readSchema);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Reading file {} with {} records in {} RowGroups",
                         file.getName(), fileReader.getRecordCount(),
@@ -165,14 +171,11 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
         ParquetRecordTreeVisitor treeVisitor = new ParquetRecordTreeVisitor(
                 context.getTupleDescription(), schema);
 
-//        FilterCompat.Filter foobar = FilterCompat.get(column("l_partkey", equalTo(185761L)));
-//        FilterCompat.Filter foobar = FilterCompat.get(eq(longColumn("l_partkey"), 185761L));
-
         try {
             Node root = new FilterParser().parse(filterString.getBytes());
             root = treePruner.prune(root);
 
-            new TreeTraverser().inOrderTraversal(root, treeVisitor);
+            new TreeTraverser().postOrderTraversal(root, treeVisitor);
             return treeVisitor.getRecordFilter();
         } catch (Exception e) {
             LOG.error(String.format("%s-%d: %s--%s Unable to generate Parquet Record Filter for filter",
@@ -226,7 +229,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
         recordReader = columnIO.getRecordReader(currentRowGroup, groupRecordConverter, recordFilter);
         rowsInRowGroup = currentRowGroup.getRowCount();
 
-        LOG.debug("Reading {} rows (RowGroup {})", rowsInRowGroup, rowGroupsReadCount);
+        LOG.trace("Reading {} rows (RowGroup {})", rowsInRowGroup, rowGroupsReadCount);
         return true;
     }
 

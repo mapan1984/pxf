@@ -4,22 +4,27 @@ import org.apache.parquet.filter.UnboundRecordFilter;
 import org.apache.parquet.filter2.compat.FilterCompat;
 
 import org.apache.parquet.schema.MessageType;
-import org.greenplum.pxf.api.filter.*;
+import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.Type;
+import org.greenplum.pxf.api.filter.ColumnIndexOperand;
+import org.greenplum.pxf.api.filter.Node;
+import org.greenplum.pxf.api.filter.Operand;
+import org.greenplum.pxf.api.filter.Operator;
+import org.greenplum.pxf.api.filter.OperatorNode;
+import org.greenplum.pxf.api.filter.TreeVisitor;
 import org.greenplum.pxf.api.io.DataType;
 import org.greenplum.pxf.api.utilities.ColumnDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Deque;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.apache.parquet.filter.ColumnPredicates.equalTo;
 import static org.apache.parquet.filter.ColumnRecordFilter.column;
 import static org.apache.parquet.filter.AndRecordFilter.and;
 import static org.apache.parquet.filter.NotRecordFilter.not;
 import static org.apache.parquet.filter.OrRecordFilter.or;
+import static org.greenplum.pxf.plugins.hdfs.ParquetColumnPredicates.equalToIgnoreTrailingSpaces;
 
 
 public class ParquetRecordTreeVisitor implements TreeVisitor {
@@ -27,13 +32,13 @@ public class ParquetRecordTreeVisitor implements TreeVisitor {
     protected final Logger LOG = LoggerFactory.getLogger(this.getClass());
 
     private final List<ColumnDescriptor> columnDescriptors;
-    private final MessageType schema;
     private Deque<UnboundRecordFilter> filterQueue;
+    private Map<String, Type> fields;
 
     public ParquetRecordTreeVisitor(List<ColumnDescriptor> columnDescriptors, MessageType schema) {
         this.columnDescriptors = columnDescriptors;
         this.filterQueue = new LinkedList<>();
-        this.schema = schema;
+        populateFields(schema);
     }
 
     @Override
@@ -105,14 +110,16 @@ public class ParquetRecordTreeVisitor implements TreeVisitor {
         ColumnDescriptor columnDescriptor = columnDescriptors.get(columnIndex);
         String filterColumnName = columnDescriptor.columnName();
         Operand operand = valueOperand.get();
+        Type type = fields.get(filterColumnName);
 
+        UnboundRecordFilter filter;
 
-//        Operators.Column operatorColumn = getColumn(filterColumnName, operand);
-
-//        FilterCompat.Filter simpleFilter;
         switch (operator) {
             case EQUALS:
-                filterQueue.push(getEqual(filterColumnName, DataType.get(columnDescriptor.columnTypeCode()), operand));
+                filter = getEqual(type.getName(),
+                        DataType.get(columnDescriptor.columnTypeCode()),
+                        type.asPrimitiveType().getPrimitiveTypeName(),
+                        operand);
                 break;
 //            case LESS_THAN:
 //                simpleFilter = lt(operatorColumn, 10);
@@ -135,24 +142,66 @@ public class ParquetRecordTreeVisitor implements TreeVisitor {
             default:
                 throw new UnsupportedOperationException("not supported");
         }
+
+        filterQueue.push(filter);
     }
 
-    private UnboundRecordFilter getEqual(String columnName, DataType type, Operand operand) {
+    private UnboundRecordFilter getEqual(String columnName,
+                                         DataType columnType,
+                                         PrimitiveType.PrimitiveTypeName parquetType,
+                                         Operand operand) {
         String value = operand.toString();
-        switch (type) {
-            case INTEGER:
+        switch (parquetType) {
+            case INT32:
                 return column(columnName, equalTo(Integer.parseInt(value)));
 
-            case BIGINT:
+            case INT64:
                 return column(columnName, equalTo(Long.parseLong(value)));
 
             case BOOLEAN:
                 return column(columnName, equalTo(Boolean.parseBoolean(value)));
+
+            case BINARY:
+                return column(columnName, equalToIgnoreTrailingSpaces(value));
+
+            case FLOAT:
+                return column(columnName, equalTo(Float.parseFloat(value)));
+
+            case DOUBLE:
+                return column(columnName, equalTo(Double.parseDouble(value)));
+
+//            case INT96:
+//                return column(columnName, equalTo(Double.parseDouble(value)));
+
+//            case FIXED_LEN_BYTE_ARRAY:
+//                BigDecimal bigDecimal = new BigDecimal(value);
+//                byte fillByte = (byte) (bigDecimal.signum() < 0 ? 0xFF : 0x00);
+//                byte[] unscaled = bigDecimal.unscaledValue().toByteArray();
+//                byte[] bytes = new byte[16];
+//                int offset = bytes.length - unscaled.length;
+//                for (int i = 0; i < bytes.length; i += 1) {
+//                    bytes[i] = (i < offset) ? fillByte : unscaled[i - offset];
+//                }
+//                return column(columnName, equalTo(Binary.fromReusedByteArray(bytes)));
 
             default:
                 throw new UnsupportedOperationException(
                         String.format("Column %s of type %s is not supported",
                                 columnName, operand.getDataType()));
         }
+    }
+
+    private void populateFields(MessageType schema) {
+        fields = new HashMap<>(schema.getFieldCount() * 2);
+        // We need to add the original name and lower cased name to
+        // the map to support mixed case where in GPDB the column name
+        // was created with quotes i.e "mIxEd CaSe". When quotes are not
+        // used to create a table in GPDB, the name of the column will
+        // always come in lower-case
+        schema.getFields().forEach(t -> {
+            String columnName = t.getName();
+            fields.put(columnName, t);
+            fields.put(columnName.toLowerCase(), t);
+        });
     }
 }
