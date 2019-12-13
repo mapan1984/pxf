@@ -90,6 +90,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
 
     private static final EnumSet<Operator> SUPPORTED_OPERATORS = EnumSet.of(
             Operator.EQUALS,
+            Operator.LESS_THAN,
             Operator.OR,
             Operator.AND,
             Operator.NOT
@@ -444,7 +445,9 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
                     origType = OriginalType.DECIMAL;
                     typeName = PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
                     length = 16; //per parquet specs
-                    dmt = new DecimalMetadata(DECIMAL_PRECISION, DECIMAL_SCALE);
+                    int precision = column.columnTypeModifiers()[0];
+                    int scale = column.columnTypeModifiers()[1];
+                    dmt = new DecimalMetadata(precision, scale);
                     break;
                 case TIMESTAMP:
                 case TIMESTAMP_WITH_TIME_ZONE:

@@ -17,7 +17,12 @@ import org.greenplum.pxf.api.utilities.ColumnDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.parquet.filter.ColumnPredicates.equalTo;
 import static org.apache.parquet.filter.ColumnRecordFilter.column;
@@ -25,6 +30,7 @@ import static org.apache.parquet.filter.AndRecordFilter.and;
 import static org.apache.parquet.filter.NotRecordFilter.not;
 import static org.apache.parquet.filter.OrRecordFilter.or;
 import static org.greenplum.pxf.plugins.hdfs.ParquetColumnPredicates.equalToIgnoreTrailingSpaces;
+import static org.greenplum.pxf.plugins.hdfs.ParquetColumnPredicates.lessThan;
 
 
 public class ParquetRecordTreeVisitor implements TreeVisitor {
@@ -112,18 +118,21 @@ public class ParquetRecordTreeVisitor implements TreeVisitor {
         Operand operand = valueOperand.get();
         Type type = fields.get(filterColumnName);
 
-        UnboundRecordFilter filter;
+        UnboundRecordFilter simpleFilter;
 
         switch (operator) {
             case EQUALS:
-                filter = getEqual(type.getName(),
+                simpleFilter = getEqual(type.getName(),
                         DataType.get(columnDescriptor.columnTypeCode()),
                         type.asPrimitiveType().getPrimitiveTypeName(),
                         operand);
                 break;
-//            case LESS_THAN:
-//                simpleFilter = lt(operatorColumn, 10);
-//                break;
+            case LESS_THAN:
+                simpleFilter = getLessThan(type.getName(),
+                        DataType.get(columnDescriptor.columnTypeCode()),
+                        type.asPrimitiveType().getPrimitiveTypeName(),
+                        operand);
+                break;
 //            case GREATER_THAN:
 //                simpleFilter = FilterCompat.get(helper(lt(), operatorColumn, 10));
 //                break;
@@ -143,7 +152,36 @@ public class ParquetRecordTreeVisitor implements TreeVisitor {
                 throw new UnsupportedOperationException("not supported");
         }
 
-        filterQueue.push(filter);
+        filterQueue.push(simpleFilter);
+    }
+
+    private UnboundRecordFilter getLessThan(String columnName,
+                                            DataType columnType,
+                                            PrimitiveType.PrimitiveTypeName parquetType,
+                                            Operand operand) {
+        String value = operand.toString();
+
+        switch (parquetType) {
+            case INT32:
+                return column(columnName, lessThan(Integer.parseInt(value)));
+
+            case INT64:
+                return column(columnName, lessThan(Long.parseLong(value)));
+
+            case BOOLEAN:
+                return column(columnName, lessThan(Boolean.parseBoolean(value)));
+
+            case FLOAT:
+                return column(columnName, lessThan(Float.parseFloat(value)));
+
+            case DOUBLE:
+                return column(columnName, lessThan(Double.parseDouble(value)));
+
+            default:
+                throw new UnsupportedOperationException(
+                        String.format("Column %s of type %s is not supported",
+                                columnName, operand.getDataType()));
+        }
     }
 
     private UnboundRecordFilter getEqual(String columnName,

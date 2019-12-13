@@ -39,4 +39,24 @@ public class ParquetColumnPredicates {
             }
         };
     }
+
+    public static ColumnPredicates.Predicate lessThan(final int target) {
+        return input -> input.getInteger() < target;
+    }
+
+    public static ColumnPredicates.Predicate lessThan(final long target) {
+        return input -> input.getLong() < target;
+    }
+
+    public static ColumnPredicates.Predicate lessThan(final boolean target) {
+        return input -> Boolean.compare(input.getBoolean(), target) < 0;
+    }
+
+    public static ColumnPredicates.Predicate lessThan(final float target) {
+        return input -> Float.compare(input.getFloat(), target) < 0;
+    }
+
+    public static ColumnPredicates.Predicate lessThan(final double target) {
+        return input -> Double.compare(input.getDouble(), target) < 0;
+    }
 }

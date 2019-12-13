@@ -23,6 +23,8 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Base64;
 
+import static java.lang.Math.pow;
+
 /**
  * Converter for Parquet types and values into PXF data types and values.
  */
@@ -169,7 +171,34 @@ public enum ParquetTypeConverter {
         @Override
         public Object getValue(Group group, int columnIndex, int repeatIndex, Type type) {
             int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
-            return new BigDecimal(new BigInteger(group.getBinary(columnIndex, repeatIndex).getBytes()), scale);
+            int precision = type.asPrimitiveType().getDecimalMetadata().getPrecision();
+            Binary value = group.getBinary(columnIndex, repeatIndex);
+
+            /*
+             * Precision <= 18 checks for the max number of digits for an unscaled long,
+             * else treat with big integer conversion
+             */
+            if (precision <= MAX_LONG_DIGITS) {
+                ByteBuffer buffer = value.toByteBuffer();
+                byte[] bytes = buffer.array();
+                int start = buffer.arrayOffset() + buffer.position();
+                int end = buffer.arrayOffset() + buffer.limit();
+                long unscaled = 0L;
+                int i = start;
+                while ( i < end ) {
+                    unscaled = ( unscaled << 8 | bytes[i] & 0xff );
+                    i++;
+                }
+                int bits = 8*(end - start);
+                long unscaledNew = (unscaled << (64 - bits)) >> (64 - bits);
+                if (unscaledNew <= -pow(10,18) || unscaledNew >= pow(10,18)) {
+                    return new BigDecimal(unscaledNew);
+                } else {
+                    return BigDecimal.valueOf(unscaledNew / pow(10,scale));
+                }
+            } else {
+                return new BigDecimal(new BigInteger(value.getBytes()), scale);
+            }
         }
 
         @Override
@@ -195,6 +224,8 @@ public enum ParquetTypeConverter {
         }
     };
 
+
+    private static final int MAX_LONG_DIGITS = 18;
 
     public static ParquetTypeConverter from(PrimitiveType primitiveType) {
         return valueOf(primitiveType.getPrimitiveTypeName().name());
