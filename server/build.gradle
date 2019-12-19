@@ -182,7 +182,7 @@ project('pxf-hdfs') {
         compile "org.apache.htrace:htrace-core4:${htraceVersion}"
         compile "org.apache.hadoop:hadoop-hdfs:${hadoopVersion}"
         compile "org.apache.hadoop:hadoop-hdfs-client:${hadoopVersion}"
-        compile "org.apache.parquet:parquet-format:2.4.0"
+        compile "org.apache.parquet:parquet-format:2.7.0"
         compile "org.apache.parquet:parquet-column:${parquetVersion}"
         compile "org.apache.parquet:parquet-common:${parquetVersion}"
         compile "org.apache.parquet:parquet-encoding:${parquetVersion}"
