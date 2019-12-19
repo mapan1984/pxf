@@ -70,7 +70,9 @@ public enum ParquetTypeConverter {
         @Override
         public DataType getDataType(Type type) {
             OriginalType originalType = type.getOriginalType();
-            if (originalType == OriginalType.INT_8 || originalType == OriginalType.INT_16) {
+            if (originalType == OriginalType.DECIMAL) {
+                return DataType.NUMERIC;
+            } else if (originalType == OriginalType.INT_8 || originalType == OriginalType.INT_16) {
                 return DataType.SMALLINT;
             } else {
                 return DataType.INTEGER;
@@ -79,9 +81,13 @@ public enum ParquetTypeConverter {
 
         @Override
         public Object getValue(Group group, int columnIndex, int repeatIndex, Type type) {
-            Integer result = group.getInteger(columnIndex, repeatIndex);
-            if (getDataType(type) == DataType.SMALLINT) {
-                return Short.valueOf(result.shortValue());
+            int result = group.getInteger(columnIndex, repeatIndex);
+            OriginalType originalType = type.getOriginalType();
+            if (originalType == OriginalType.DECIMAL) {
+                int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
+                return new BigDecimal(BigInteger.valueOf(result), scale);
+            } else if (originalType == OriginalType.INT_8 || originalType == OriginalType.INT_16) {
+                return (short) result;
             } else {
                 return result;
             }
@@ -96,12 +102,22 @@ public enum ParquetTypeConverter {
     INT64 {
         @Override
         public DataType getDataType(Type type) {
+            OriginalType originalType = type.getOriginalType();
+            if (originalType == OriginalType.DECIMAL) {
+                return DataType.NUMERIC;
+            }
             return DataType.BIGINT;
         }
 
         @Override
         public Object getValue(Group group, int columnIndex, int repeatIndex, Type type) {
-            return group.getLong(columnIndex, repeatIndex);
+            long value = group.getLong(columnIndex, repeatIndex);
+            OriginalType originalType = type.getOriginalType();
+            if (originalType == OriginalType.DECIMAL) {
+                int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
+                return new BigDecimal(BigInteger.valueOf(value), scale);
+            }
+            return value;
         }
 
         @Override
@@ -185,16 +201,16 @@ public enum ParquetTypeConverter {
                 int end = buffer.arrayOffset() + buffer.limit();
                 long unscaled = 0L;
                 int i = start;
-                while ( i < end ) {
-                    unscaled = ( unscaled << 8 | bytes[i] & 0xff );
+                while (i < end) {
+                    unscaled = (unscaled << 8 | bytes[i] & 0xff);
                     i++;
                 }
-                int bits = 8*(end - start);
+                int bits = 8 * (end - start);
                 long unscaledNew = (unscaled << (64 - bits)) >> (64 - bits);
-                if (unscaledNew <= -pow(10,18) || unscaledNew >= pow(10,18)) {
+                if (unscaledNew <= -pow(10, 18) || unscaledNew >= pow(10, 18)) {
                     return new BigDecimal(unscaledNew);
                 } else {
-                    return BigDecimal.valueOf(unscaledNew / pow(10,scale));
+                    return BigDecimal.valueOf(unscaledNew / pow(10, scale));
                 }
             } else {
                 return new BigDecimal(new BigInteger(value.getBytes()), scale);
@@ -230,7 +246,6 @@ public enum ParquetTypeConverter {
     public static ParquetTypeConverter from(PrimitiveType primitiveType) {
         return valueOf(primitiveType.getPrimitiveTypeName().name());
     }
-
 
 
     // ********** PUBLIC INTERFACE **********
@@ -282,6 +297,7 @@ public enum ParquetTypeConverter {
     /**
      * Converts a "timestamp with time zone" string to a INT96 byte array.
      * Supports microseconds for timestamps
+     *
      * @param timestampWithTimeZoneString
      * @return Binary format of the timestamp with time zone string
      */
