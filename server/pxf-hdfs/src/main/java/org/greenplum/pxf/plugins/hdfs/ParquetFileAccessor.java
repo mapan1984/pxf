@@ -51,12 +51,12 @@ import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type;
 import org.greenplum.pxf.api.OneRow;
 import org.greenplum.pxf.api.UnsupportedTypeException;
-import org.greenplum.pxf.api.filter.BaseTreePruner;
 import org.greenplum.pxf.api.filter.FilterParser;
 import org.greenplum.pxf.api.filter.Node;
 import org.greenplum.pxf.api.filter.Operator;
-import org.greenplum.pxf.api.filter.TreePruner;
+import org.greenplum.pxf.api.filter.SupportedOperatorPruner;
 import org.greenplum.pxf.api.filter.TreeTraverser;
+import org.greenplum.pxf.api.filter.TreeVisitor;
 import org.greenplum.pxf.api.io.DataType;
 import org.greenplum.pxf.api.model.Accessor;
 import org.greenplum.pxf.api.model.BasePlugin;
@@ -168,16 +168,16 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
             return FilterCompat.NOOP;
         }
 
-        TreePruner treePruner = new BaseTreePruner(SUPPORTED_OPERATORS);
-        ParquetRecordTreeVisitor treeVisitor = new ParquetRecordTreeVisitor(
+        TreeVisitor pruner = new SupportedOperatorPruner(SUPPORTED_OPERATORS);
+        ParquetRecordFilterBuilder filterBuilder = new ParquetRecordFilterBuilder(
                 context.getTupleDescription(), schema);
 
         try {
             Node root = new FilterParser().parse(filterString.getBytes());
-            root = treePruner.prune(root);
+            root = pruner.visit(root);
 
-            new TreeTraverser().postOrderTraversal(root, treeVisitor);
-            return treeVisitor.getRecordFilter();
+            new TreeTraverser().inOrderTraversal(root, filterBuilder);
+            return filterBuilder.getRecordFilter();
         } catch (Exception e) {
             LOG.error(String.format("%s-%d: %s--%s Unable to generate Parquet Record Filter for filter",
                     context.getTransactionId(),
@@ -462,7 +462,8 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
                     typeName = PrimitiveTypeName.BINARY;
                     break;
                 default:
-                    throw new UnsupportedTypeException("Type " + columnTypeCode + "is not supported");
+                    throw new UnsupportedTypeException(
+                            String.format("Type %d is not supported", columnTypeCode));
             }
             fields.add(new PrimitiveType(
                     Type.Repetition.OPTIONAL,
