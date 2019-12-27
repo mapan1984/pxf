@@ -21,6 +21,7 @@ package org.greenplum.pxf.plugins.hdfs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.io.api.Binary;
@@ -119,15 +120,30 @@ public class ParquetResolver extends BasePlugin implements Resolver {
                 group.add(index, (Float) field.val);
                 break;
             case FIXED_LEN_BYTE_ARRAY:
+                // From org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter.DecimalDataWriter#decimalToBinary
+                int precision = type.asPrimitiveType().getDecimalMetadata().getPrecision();
+                int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
                 BigDecimal value = new BigDecimal((String) field.val);
-                byte fillByte = (byte) (value.signum() < 0 ? 0xFF : 0x00);
-                byte[] unscaled = value.unscaledValue().toByteArray();
-                byte[] bytes = new byte[16];
-                int offset = bytes.length - unscaled.length;
-                for (int i = 0; i < bytes.length; i += 1) {
-                    bytes[i] = (i < offset) ? fillByte : unscaled[i - offset];
+                HiveDecimal hiveDecimal = HiveDecimal.create(value);
+                byte[] decimalBytes = hiveDecimal.bigIntegerBytesScaled(scale);
+
+                // Estimated number of bytes needed.
+                int precToBytes = ParquetFileAccessor.PRECISION_TO_BYTE_COUNT[precision - 1];
+                if (precToBytes == decimalBytes.length) {
+                    // No padding needed.
+                    group.add(index, Binary.fromReusedByteArray(decimalBytes));
+                } else {
+                    byte[] tgt = new byte[precToBytes];
+                    if (hiveDecimal.signum() == -1) {
+                        // For negative number, initializing bits to 1
+                        for (int i = 0; i < precToBytes; i++) {
+                            tgt[i] |= 0xFF;
+                        }
+                    }
+                    System.arraycopy(decimalBytes, 0, tgt, precToBytes - decimalBytes.length, decimalBytes.length); // Padding leading zeroes/ones.
+                    group.add(index, Binary.fromReusedByteArray(tgt));
                 }
-                group.add(index, Binary.fromReusedByteArray(bytes));
+                // end -- org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter.DecimalDataWriter#decimalToBinary
                 break;
             case INT96:  // SQL standard timestamp string value with or without time zone literals: https://www.postgresql.org/docs/9.4/datatype-datetime.html
                 String timestamp = (String) field.val;
