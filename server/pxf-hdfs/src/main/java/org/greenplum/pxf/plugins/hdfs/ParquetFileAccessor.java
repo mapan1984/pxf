@@ -22,6 +22,7 @@ package org.greenplum.pxf.plugins.hdfs;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.column.page.PageReadStore;
@@ -75,6 +76,7 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
     private static final CompressionCodecName DEFAULT_COMPRESSION = CompressionCodecName.SNAPPY;
 
     public static final int PRECISION_TO_BYTE_COUNT[] = new int[38];
+
     static {
         for (int prec = 1; prec <= 38; prec++) {
             // Estimated number of bytes needed.
@@ -374,8 +376,14 @@ public class ParquetFileAccessor extends BasePlugin implements Accessor {
                 case NUMERIC:
                     origType = OriginalType.DECIMAL;
                     typeName = PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
-                    int precision = column.columnTypeModifiers()[0];
-                    int scale = column.columnTypeModifiers()[1];
+                    Integer[] columnTypeModifiers = column.columnTypeModifiers();
+                    int precision = HiveDecimal.SYSTEM_DEFAULT_PRECISION;
+                    int scale = HiveDecimal.SYSTEM_DEFAULT_SCALE;
+
+                    if (columnTypeModifiers != null && columnTypeModifiers.length > 1) {
+                        precision = columnTypeModifiers[0];
+                        scale = columnTypeModifiers[1];
+                    }
                     length = PRECISION_TO_BYTE_COUNT[precision - 1];
                     dmt = new DecimalMetadata(precision, scale);
                     break;

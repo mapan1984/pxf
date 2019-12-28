@@ -21,6 +21,7 @@ package org.greenplum.pxf.plugins.hdfs;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.hive.common.type.HiveDecimal;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
@@ -121,10 +122,21 @@ public class ParquetResolver extends BasePlugin implements Resolver {
                 break;
             case FIXED_LEN_BYTE_ARRAY:
                 // From org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter.DecimalDataWriter#decimalToBinary
+                String value = (String) field.val;
                 int precision = type.asPrimitiveType().getDecimalMetadata().getPrecision();
                 int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
-                BigDecimal value = new BigDecimal((String) field.val);
-                HiveDecimal hiveDecimal = HiveDecimal.create(value);
+                HiveDecimal hiveDecimal = HiveDecimal.enforcePrecisionScale(HiveDecimal.create(value),
+                        HiveDecimal.MAX_PRECISION, HiveDecimal.MAX_SCALE);
+
+                if (hiveDecimal == null) {
+                    // When precision is higher than HiveDecimal.MAX_PRECISION
+                    // and enforcePrecisionScale returns null, it means we
+                    // cannot store the value in Parquet. To make the behavior
+                    // consistent with Hive, when storing on a Parquet-backed
+                    // table, we store the value as null.
+                    return;
+                }
+
                 byte[] decimalBytes = hiveDecimal.bigIntegerBytesScaled(scale);
 
                 // Estimated number of bytes needed.
