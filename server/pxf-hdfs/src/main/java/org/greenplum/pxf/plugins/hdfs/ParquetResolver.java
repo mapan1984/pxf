@@ -122,8 +122,8 @@ public class ParquetResolver extends BasePlugin implements Resolver {
             case FIXED_LEN_BYTE_ARRAY:
                 // From org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter.DecimalDataWriter#decimalToBinary
                 String value = (String) field.val;
-                int precision = type.asPrimitiveType().getDecimalMetadata().getPrecision();
-                int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
+                int precision = Math.min(HiveDecimal.MAX_PRECISION, type.asPrimitiveType().getDecimalMetadata().getPrecision());
+                int scale = Math.min(HiveDecimal.MAX_SCALE, type.asPrimitiveType().getDecimalMetadata().getScale());
                 HiveDecimal hiveDecimal = HiveDecimal.enforcePrecisionScale(
                         HiveDecimal.create(value),
                         precision,
