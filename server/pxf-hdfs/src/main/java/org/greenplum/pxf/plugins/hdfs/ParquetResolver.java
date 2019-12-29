@@ -37,7 +37,6 @@ import org.greenplum.pxf.api.model.Resolver;
 import org.greenplum.pxf.api.utilities.ColumnDescriptor;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -123,10 +122,10 @@ public class ParquetResolver extends BasePlugin implements Resolver {
             case FIXED_LEN_BYTE_ARRAY:
                 // From org.apache.hadoop.hive.ql.io.parquet.write.DataWritableWriter.DecimalDataWriter#decimalToBinary
                 String value = (String) field.val;
-                int precision = type.asPrimitiveType().getDecimalMetadata().getPrecision();
-                int scale = type.asPrimitiveType().getDecimalMetadata().getScale();
+                int precision = Math.min(calculatePrecision(value), type.asPrimitiveType().getDecimalMetadata().getPrecision());
+                int scale = Math.min(calculateScale(value), type.asPrimitiveType().getDecimalMetadata().getScale());
                 HiveDecimal hiveDecimal = HiveDecimal.enforcePrecisionScale(HiveDecimal.create(value),
-                        HiveDecimal.MAX_PRECISION, HiveDecimal.MAX_SCALE);
+                        precision, scale);
 
                 if (hiveDecimal == null) {
                     // When precision is higher than HiveDecimal.MAX_PRECISION
@@ -173,6 +172,33 @@ public class ParquetResolver extends BasePlugin implements Resolver {
             default:
                 throw new IOException("Not supported type " + type.asPrimitiveType().getPrimitiveTypeName());
         }
+    }
+
+    private int calculateScale(String value) {
+        int scale = 0;
+        boolean decimalFlag = false;
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                if (value.charAt(i) == '.') {
+                    decimalFlag = true;
+                } else if (decimalFlag && Character.isDigit(value.charAt(i))) {
+                    scale++;
+                }
+            }
+        }
+        return scale;
+    }
+
+    private int calculatePrecision(String value) {
+        int precision = 0;
+        if (value != null) {
+            for (int i = 0; i < value.length(); i++) {
+                if (Character.isDigit(value.charAt(i))) {
+                    precision++;
+                }
+            }
+        }
+        return precision;
     }
 
     // Set schema from context if null
