@@ -348,7 +348,10 @@ public class Text implements Writable {
         byte c;
         curLoc = 0;
         clear();
-        while ((c = (byte) ((DataInputStream) inputStream).read()) != EOF) {
+        c = (byte) ((DataInputStream) inputStream).read();
+        LOG.debug("readFields c is " + c);
+        while (c != EOF) {
+
             buf[curLoc] = c;
             curLoc++;
 
@@ -360,6 +363,8 @@ public class Text implements Writable {
             if (isBufferFull()) {
                 flushBuffer();
             }
+            c = (byte) ((DataInputStream) inputStream).read();
+            LOG.debug("readFields c is " + c);
         }
 
         if (!isBufferEmpty()) {

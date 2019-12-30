@@ -44,6 +44,8 @@ public class BridgeInputBuilder {
     }
 
     public List<OneField> makeInput(DataInput inputStream) throws Exception {
+        // LOG.debug("makeInput OutputFormat: {}", protocolData.getOutputFormat());
+        LOG.debug("makeInput outputFormat is TEXT: {}", protocolData.getOutputFormat() == OutputFormat.TEXT);
         if (protocolData.getOutputFormat() == OutputFormat.TEXT) {
             Text txt = new Text();
             txt.readFields(inputStream);

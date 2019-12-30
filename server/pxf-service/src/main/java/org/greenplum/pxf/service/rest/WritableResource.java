@@ -124,8 +124,12 @@ public class WritableResource extends BaseResource {
                            @Context HttpHeaders headers,
                            @QueryParam("path") String path,
                            InputStream inputStream) throws Exception {
+        LOG.debug("stream method path: {}", path);
 
         RequestContext context = parseRequest(headers);
+        LOG.debug("stream context accessor: {}", context.getAccessor());
+        LOG.debug("stream context resolver: {}", context.getResolver());
+
         Bridge bridge = bridgeFactory.getWriteBridge(context);
 
         // THREAD-SAFE parameter has precedence
@@ -150,6 +154,7 @@ public class WritableResource extends BaseResource {
 
     private Response writeResponse(Bridge bridge, String path, InputStream inputStream)
             throws Exception {
+        LOG.debug("writeResponse path: {}", path);
         // Open the output file
         bridge.beginIteration();
         long totalWritten = 0;
@@ -158,8 +163,16 @@ public class WritableResource extends BaseResource {
         // dataStream will close automatically in the end of the try.
         // inputStream is closed by dataStream.close().
         try (DataInputStream dataStream = new DataInputStream(inputStream)) {
-            while (bridge.setNext(dataStream)) {
-                ++totalWritten;
+            while (true) {
+                boolean ok = bridge.setNext(dataStream);
+                if (ok) {
+                    ++totalWritten;
+                }
+                LOG.debug("writeResponse bridge setNext res: {}, totalWritten: {}", ok, totalWritten);
+
+                if (!ok) {
+                    break;
+                }
             }
         } catch (ClientAbortException cae) {
             LOG.error("Remote connection closed by GPDB", cae);

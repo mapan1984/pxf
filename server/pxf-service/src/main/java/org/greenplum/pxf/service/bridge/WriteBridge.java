@@ -67,11 +67,18 @@ public class WriteBridge extends BaseBridge {
     public boolean setNext(DataInputStream inputStream) throws Exception {
 
         List<OneField> record = inputBuilder.makeInput(inputStream);
+        LOG.debug("setNext record is {}", record);
+        for (OneField r : record) {
+            LOG.debug("setNext record is {}", r);
+            LOG.debug("setNext record type is {}", r.type);
+            LOG.debug("setNext record val is {}", r.val);
+        }
         if (record == null) {
             return false;
         }
 
         OneRow onerow = resolver.setFields(record);
+        LOG.debug("setNext onerow is {}", onerow);
         if (onerow == null) {
             return false;
         }

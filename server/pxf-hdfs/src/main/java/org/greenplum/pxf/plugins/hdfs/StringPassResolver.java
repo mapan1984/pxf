@@ -71,6 +71,9 @@ public class StringPassResolver extends BasePlugin implements Resolver {
     @Override
     public OneRow setFields(List<OneField> record) {
         if (((byte[]) record.get(0).val).length == 0) {
+            LOG.debug("setFields record: {}", record.get(0));
+            LOG.debug("setFields record: {}", record.get(0).type);
+            LOG.debug("setFields record: {}", record.get(0).val);
             return null;
         }
 
